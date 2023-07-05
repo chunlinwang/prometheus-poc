@@ -1,0 +1,118 @@
+version: '3.8'
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus_data: {}
+  grafana_data: {}
+
+services:
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    expose:
+      - 9100
+    ports:
+      - 9100:9100
+    networks:
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    expose:
+      - 9090
+    ports:
+      - 9090:9090
+    depends_on:
+      - pushgateway
+    networks:
+      - monitoring
+
+  pushgateway:
+    image: prom/pushgateway:latest
+    container_name: pushgateway
+    restart: unless-stopped
+    command:
+      # - '--web.listen-address=9091'
+      - '--web.telemetry-path=/metrics'
+    expose:
+      - 9091
+    ports:
+      - 9091:9091
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana-enterprise:8.2.0
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - monitoring
+
+  app:
+    container_name: app
+    build:
+      context: ./app
+      args:
+        - APP_PORT=2000
+    networks:
+      - monitoring
+    volumes:
+      - ./app:/app
+    ports:
+      - 2000:2000
+    tty: true
+
+  app2:
+    container_name: app2
+    build:
+      context: ./app
+      args:
+        - APP_PORT=2001
+    networks:
+      - monitoring
+    volumes:
+      - ./app:/app
+    ports:
+      - 2001:2001
+    tty: true
+
+  app3:
+    container_name: app3
+    build:
+      context: ./app
+      args:
+        - APP_PORT=2002
+    networks:
+      - monitoring
+    volumes:
+      - ./app:/app
+    ports:
+      - 2002:2002
+    tty: true
